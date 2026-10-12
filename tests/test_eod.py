@@ -107,7 +107,7 @@ class EODTests(unittest.TestCase):
         self.eod.uniListPopupButton = Control()
         self.eod.heroAmountPopupButton = Control()
         self.eod.textFieldNextHero = Control()
-        self.eod.charSetDict = {'GB2312': ['6728']}
+        self.eod.charSetDict = {'Joyo': ['6728']}
         self.eod.doneList = lambda: []
         self.eod.nextHeroList = lambda *args: ['6728']
         self.eod.nextHeroButton_(None)
@@ -176,6 +176,26 @@ class EODTests(unittest.TestCase):
             expected = sorted((u for u in candidates if coverage[u]),
                               key=lambda u: (-coverage[u], int(u, 16)))
             self.assertEqual(self.eod.nextHeroList(done, unis, 200), expected)
+
+    def test_japanese_character_sets_loaded_and_recommendable(self):
+        # Verify all 4 Japanese sets are present in bundled charSetDict
+        expected_sizes = {
+            'Joyo': 2136,
+            'JIS1': 2965,
+            'Kyoiku': 1026,
+            'JIS1_2': 6355,
+        }
+        for name, expected_len in expected_sizes.items():
+            self.assertIn(name, self.eod.charSetDict)
+            self.assertEqual(len(self.eod.charSetDict[name]), expected_len)
+            # Verify Kyoiku is strict subset of Joyo
+            if name == 'Kyoiku':
+                self.assertTrue(set(self.eod.charSetDict['Kyoiku']).issubset(set(self.eod.charSetDict['Joyo'])))
+
+        # Verify recommendation calculation runs smoothly on Joyo
+        self.eod.progBarProgress = Control()
+        joyo_hero = self.eod.nextHeroList([], self.eod.charSetDict['Joyo'], amount=3)
+        self.assertEqual(len(joyo_hero), 3)
 
     def test_part_name_dict_localization_japanese_and_english(self):
         # Test English localization (default mock app)

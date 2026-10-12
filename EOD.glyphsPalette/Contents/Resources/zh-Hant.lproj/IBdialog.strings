@@ -126,3 +126,15 @@
 
 /* Class = "NSTextFieldCell"; title = "3"; ObjectID = "yEQ-M3-XJo"; */
 "yEQ-M3-XJo.title" = "3";
+
+/* Class = "NSMenuItem"; title = "常用漢字 2.1k"; ObjectID = "JYo-2k-joy"; */
+"JYo-2k-joy.title" = "日本常用漢字 2.1k";
+
+/* Class = "NSMenuItem"; title = "JIS第1水準 3.0k"; ObjectID = "JS1-3k-jis"; */
+"JS1-3k-jis.title" = "JIS第1水準 3.0k";
+
+/* Class = "NSMenuItem"; title = "教育漢字 1.0k"; ObjectID = "Kyk-1k-kyo"; */
+"Kyk-1k-kyo.title" = "日本教育漢字 1.0k";
+
+/* Class = "NSMenuItem"; title = "JIS第1・2水準 6.4k"; ObjectID = "JS2-6k-jis"; */
+"JS2-6k-jis.title" = "JIS第1・2水準 6.4k";

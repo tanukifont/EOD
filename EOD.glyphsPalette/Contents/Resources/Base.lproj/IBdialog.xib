@@ -201,12 +201,16 @@
                                     </popUpButton>
                                     <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="z6F-4q-0E9">
                                         <rect key="frame" x="148" y="38" width="211" height="22"/>
-                                        <popUpButtonCell key="cell" type="push" title="GB2312 6k+" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="nQt-pb-HMO" id="kaZ-0h-bX0">
+                                        <popUpButtonCell key="cell" type="push" title="常用漢字 2.1k" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="JYo-2k-joy" id="kaZ-0h-bX0">
                                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                             <font key="font" metaFont="smallSystem"/>
                                             <menu key="menu" id="Y1Y-gV-tUL">
                                                 <items>
-                                                    <menuItem title="GB2312 6k+" state="on" id="nQt-pb-HMO"/>
+                                                    <menuItem title="常用漢字 2.1k" state="on" id="JYo-2k-joy"/>
+                                                    <menuItem title="JIS第1水準 3.0k" id="JS1-3k-jis"/>
+                                                    <menuItem title="教育漢字 1.0k" id="Kyk-1k-kyo"/>
+                                                    <menuItem title="JIS第1・2水準 6.4k" id="JS2-6k-jis"/>
+                                                    <menuItem title="GB2312 6k+" id="nQt-pb-HMO"/>
                                                     <menuItem title="Commonly used characters·Hanyi 9k+" id="4dR-hx-mjK"/>
                                                     <menuItem title="Big5 12k+" id="X87-bh-YeT"/>
                                                 </items>

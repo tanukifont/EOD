@@ -234,13 +234,17 @@ class EOD(PalettePlugin):
         layerWidth = self.getHanWidth()
 
         uniListDict = {
-            0: 'GB2312',
-            1: 'Hanyi9169',
-            2: 'Big5'
+            0: 'Joyo',
+            1: 'JIS1',
+            2: 'Kyoiku',
+            3: 'JIS1_2',
+            4: 'GB2312',
+            5: 'Hanyi9169',
+            6: 'Big5'
         }
-        uniListName = uniListDict[self.uniListPopupButton.indexOfSelectedItem()]
+        uniListName = uniListDict.get(self.uniListPopupButton.indexOfSelectedItem(), 'Joyo')
 
-        searchRange = self.charSetDict[uniListName]
+        searchRange = self.charSetDict.get(uniListName, [])
         print('Character set size: ', len(searchRange))
         doneList = self.doneList()
         print('Characters done: ', len(doneList))
