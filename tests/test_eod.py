@@ -32,6 +32,8 @@ class Control:
     def indexOfSelectedItem(self): return self.value
     def state(self): return self.value
     def intValue(self): return self.value
+    def setState_(self, value): self.value = value
+    def setIntValue_(self, value): self.value = value
     def setDoubleValue_(self, value): self.value = value
     def setStringValue_(self, value): self.value = value
 
@@ -231,6 +233,45 @@ class EODTests(unittest.TestCase):
         finally:
             self.app.localize = orig_localize
 
+    def test_deep_down_toggle_on_kaku(self):
+        f_kaku = self.eod.getFormula('62E1')  # 拡: ['⿰', '扌', '広']
+        self.assertEqual(f_kaku, ['⿰', '扌', '広'])
+
+        # deepDown = False: directly calls 扌 and 広 without further decomposition
+        parts_shallow = self.eod.getPartNameDict(f_kaku, deepDown=False)
+        self.assertIn('_part.u624C-LR', parts_shallow)
+        self.assertIn('_part.u5E83-LR', parts_shallow)
+        self.assertEqual(parts_shallow['_part.u624C-LR'][0], '扌')
+        self.assertEqual(parts_shallow['_part.u5E83-LR'][0], '広')
+        self.assertNotIn('_part.u5E7F-SfAL', parts_shallow)  # 广 not created
+        self.assertNotIn('_part.u53B6-Si', parts_shallow)    # 厶 not created
+
+        # deepDown = True: recursively decomposes into 扌, 广, and 厶
+        parts_deep = self.eod.getPartNameDict(f_kaku, deepDown=True)
+        self.assertIn('_part.u624C-LR', parts_deep)
+        self.assertIn('_part.u5E7F-SfAL', parts_deep)  # 广
+        self.assertIn('_part.u53B6-Si', parts_deep)    # 厶
+        self.assertNotIn('_part.u5E83-LR', parts_deep)
+
+        # Formula note also reflects deepDown
+        self.assertEqual(self.eod.getFormulaNote('62E1', deepDown=False), '⿰扌広')
+        self.assertEqual(self.eod.getFormulaNote('62E1', deepDown=True), '⿰扌「⿸广厶」')
+
+    def test_jis_x0208_overrides_applied(self):
+        # 捨 uses Japanese Joyo 舎 (U+820E), not Chinese 舍 (U+820D)
+        self.assertEqual(self.eod.idsDict['6368']['formula'], ['⿰', '扌', '舎'])
+        # 舗 uses Japanese Joyo 舎
+        self.assertEqual(self.eod.idsDict['8217']['formula'], ['⿰', '舎', '甫'])
+        # 海 uses Japanese 毎
+        self.assertEqual(self.eod.idsDict['6D77']['formula'], ['⿰', '氵', '毎'])
+        # 教 uses Japanese 孝
+        self.assertEqual(self.eod.idsDict['6559']['formula'], ['⿰', '孝', '攵'])
+        # 梅 uses Japanese 毎
+        self.assertEqual(self.eod.idsDict['6885']['formula'], ['⿰', '木', '毎'])
+        # 圧 uses Japanese enclosing ⿸, not side-by-side ⿰
+        self.assertEqual(self.eod.idsDict['5727']['formula'], ['⿸', '厂', '土'])
+
 
 if __name__ == '__main__': unittest.main()
+
 

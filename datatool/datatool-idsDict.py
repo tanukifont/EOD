@@ -20,6 +20,9 @@ idsTSVList = [
     './dataset/ids/IDS-UCS-Ext-A.txt'
 ]
 
+jisTSVFile = './dataset/ids/IDS-JIS-X0208-1990.txt'
+orderingFile = './dataset/ids/Adobe-Japan1-7_ordering.txt'
+
 # TSVs of your ids patch to override
 # !!! Please follow the CHISE style format
 idsPatchList = [
@@ -31,19 +34,94 @@ idsPatchList = [
 # Unihan project: http://www.unicode.org/reports/tr38
 unihanTSVList = ['./dataset/Unihan/Unihan_IRGSources.txt']
 
+RADICAL_MAP = {
+    '\u2EBE': '\u8279',  # ⺾ -> 艹
+    '\u2ECC': '\u8FB6',  # ⻌ -> 辶
+    '\u2EDF': '\u98E0',  # ⻟ -> 飠
+    '\u2EDE': '\u98E0',  # ⻞ -> 飠
+    '\u2ED6': '\u961D',  # ⻖ -> 阝
+    '\u2EBC': '\u6708',  # ⺼ -> 月
+    '\u2EA1': '\u6C35',  # ⺡ -> 氵
+    '\u2EA8': '\u72AD',  # ⺨ -> 犭
+    '\u2EA3': '\u706C',  # ⺣ -> 灬
+    '\u2EA4': '\u722B',  # ⺤ -> 爫
+    '\u2E85': '\u4ebb',  # ⺅ -> 亻
+    '\u2E88': '\u5202',  # ⺈ -> 刂
+    '\u2E8A': '\u535c',  # ⺊ -> 卜
+    '\u2E95': '\u5f51',  # ⺕ -> 彐
+    '\u2E96': '\u5fc4',  # ⺖ -> 忄
+    '\u2E97': '\u624c',  # ⺗ -> 扌
+    '\u2E98': '\u6535',  # ⺘ -> 攵
+    '\u2EAB': '\u7389',  # ⺫ -> 王
+    '\u2EC0': '\u8864',  # ⻀ -> 衤
+    '\u2EB9': '\u793b',  # ⺹ -> 礻
+}
+
 
 def readTSVs(tsvList):
     tsvData = []
     for tsvFile in tsvList:
-        with open(tsvFile, 'r') as tsv_in:
-            tsvReader = csv.reader(tsv_in, delimiter='\t')
-            # tsvLabels = tsvReader.__next__()
-            for record in tsvReader:
-                tsvData.append(record)
+        try:
+            with open(tsvFile, 'r', encoding='utf-8') as tsv_in:
+                tsvReader = csv.reader(tsv_in, delimiter='\t')
+                for record in tsvReader:
+                    if record and not record[0].startswith(';'):
+                        tsvData.append(record)
+        except FileNotFoundError:
+            pass
     return tsvData
 
 
-idsTSVData = readTSVs(idsTSVList + idsPatchList)
+def readJISTSV(jisFile, orderingPath):
+    cid_map = {}
+    try:
+        with open(orderingPath, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                parts = line.strip().split('\t')
+                if len(parts) >= 4 and parts[1] == 'Kanji':
+                    cid = int(parts[0])
+                    try:
+                        ku = int(parts[2][1:], 16) - 0x20
+                        ten = int(parts[3][1:], 16) - 0x20
+                        cid_map[cid] = bytes([ku + 0xa0, ten + 0xa0]).decode('euc-jp')
+                    except Exception:
+                        pass
+    except FileNotFoundError:
+        print('Ordering file not found, skipping CID mapping.')
+
+    records = []
+    try:
+        with open(jisFile, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.strip()
+                if not line.startswith('J90-'):
+                    continue
+                parts = line.split('\t')
+                if len(parts) >= 3:
+                    hex_str = parts[0].split('-')[1]
+                    try:
+                        ku = int(hex_str[:2], 16) - 0x20
+                        ten = int(hex_str[2:], 16) - 0x20
+                        kanji = bytes([ku + 0xa0, ten + 0xa0]).decode('euc-jp')
+                    except Exception:
+                        continue
+                    formulaRAW = parts[2]
+                    formulaRAW = re.sub(
+                        r'&AJ1-(\d+);',
+                        lambda m: cid_map.get(int(m.group(1)), m.group(0)),
+                        formulaRAW
+                    )
+                    for k, v in RADICAL_MAP.items():
+                        formulaRAW = formulaRAW.replace(k, v)
+                    uni_code = f'U+{ord(kanji):04X}'
+                    records.append([uni_code, kanji, formulaRAW])
+    except FileNotFoundError:
+        print('JIS file not found, skipping JIS dataset.')
+    print(f'### JIS records loaded: {len(records)}')
+    return records
+
+
+idsTSVData = readTSVs(idsTSVList) + readJISTSV(jisTSVFile, orderingFile) + readTSVs(idsPatchList)
 
 unihanTSVData = readTSVs(unihanTSVList)
 
@@ -70,6 +148,8 @@ idsDict = {}
 
 
 def checkIt(listXY):
+    if len(listXY) == 0:
+        return 0
     if len(listXY) == 1:
         return 1
 
@@ -109,7 +189,13 @@ for x in idsTSVData:
 
     # IDS formula parser
     iX = 0
+    steps = 0
+    failed = False
     while checkIt(formulaList) == 0:
+        steps += 1
+        if steps > 50 or iX >= len(formulaList):
+            failed = True
+            break
         if checkIt(formulaList[iX:iX + 4]) == 0:
             iX += 1
         elif checkIt(formulaList[iX:iX + 4]) == 3:
@@ -119,10 +205,22 @@ for x in idsTSVData:
             formulaList = formulaList[:iX] + [formulaList[iX:iX + 4]] + formulaList[iX + 4:]
             iX = 0
 
+    if failed or checkIt(formulaList) == 0:
+        continue
+
+    model_lengths = {
+        '⿰': 2, '⿱': 2, '⿴': 2, '⿵': 2, '⿶': 2, '⿷': 2,
+        '⿸': 2, '⿹': 2, '⿺': 2, '⿻': 2, '⿲': 3, '⿳': 3
+    }
+    if formulaList[0] in model_lengths and len(formulaList) - 1 != model_lengths[formulaList[0]]:
+        continue
+
     if formulaList == [xZi]:
         formulaList = ['○', xZi, xZi]
 
     totalStrokes = unihanDict.get(xUni, {'totalStrokes': 0}).get('totalStrokes')
+    if not totalStrokes and xUni in idsDict:
+        totalStrokes = idsDict[xUni].get('totalStrokes', 0)
 
     idsDict[xUni] = {'zi': xZi, 'formula': formulaList, 'totalStrokes': totalStrokes}
 

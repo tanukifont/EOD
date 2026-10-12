@@ -71,10 +71,11 @@ class EOD(PalettePlugin):
         sumDict = {}
         partNameStr = ''
 
+        deepDown = bool(self.checkBoxFormulaDeepDown.intValue()) if hasattr(self, 'checkBoxFormulaDeepDown') and self.checkBoxFormulaDeepDown else True
         for glyphUni in thisUniList:
             if glyphUni in self.idsDict.keys():
                 formula = self.getFormula(glyphUni)
-                partNameDict = self.getPartNameDict(formula)
+                partNameDict = self.getPartNameDict(formula, deepDown=deepDown)
 
                 for partName, noteList in partNameDict.items():
                     sumDict[partName] = sumDict.get(partName, 0) + 1
@@ -310,6 +311,8 @@ class EOD(PalettePlugin):
         self.progPercentPopupButton.selectItemAtIndex_(
             Glyphs.defaults.get('com.the3type.EOD.progPercent', 0)
         )
+        if hasattr(self, 'checkBoxFormulaDeepDown') and self.checkBoxFormulaDeepDown:
+            self.checkBoxFormulaDeepDown.setIntValue_(0)
         Glyphs.addCallback(self.update, UPDATEINTERFACE)
 
     @objc.python_method
@@ -541,7 +544,7 @@ class EOD(PalettePlugin):
         return self._subStructureLabelCacheByLang[lang]
 
     @objc.python_method
-    def getPartNameDict(self, formulaList, seen=frozenset()):
+    def getPartNameDict(self, formulaList, seen=frozenset(), deepDown=True):
         def cleanName(strOld):
             strNew = ''
             for x in strOld:
@@ -564,22 +567,24 @@ class EOD(PalettePlugin):
         modelList = modelStrDict[modelSymbol]
         partNameDict = {}
         for i, part in enumerate(formulaList[1:]):
+            if i >= len(modelList):
+                break
 
             nameNote = modelList[i][1]
             if isinstance(part, str) and len(part) == 1:
                 partFormulaList = self.getFormula(self.uni(part))
-                if partFormulaList[0] == '○':
+                if partFormulaList[0] == '○' or not deepDown:
                     partNameStr = '_part.u' + self.uni(part) + modelList[i][0]
                     partNameDict[partNameStr] = [part, nameNote]
                 else:
-                    innerPartDict = self.getPartNameDict(partFormulaList, seen)
+                    innerPartDict = self.getPartNameDict(partFormulaList, seen, deepDown=deepDown)
                     for xName, xNote in innerPartDict.items():
                         nameNote = modelList[i][1] + subStructureLabel + xNote[1]
                         innerPartDict[xName][1] = nameNote
                     partNameDict = innerPartDict | partNameDict
 
             elif isinstance(part, list):
-                innerPartDict = self.getPartNameDict(part, seen)
+                innerPartDict = self.getPartNameDict(part, seen, deepDown=deepDown)
                 for xName, xNote in innerPartDict.items():
                     nameNote = modelList[i][1] + subStructureLabel + xNote[1]
                     innerPartDict[xName][1] = nameNote
