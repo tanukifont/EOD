@@ -90,7 +90,15 @@ class EOD(PalettePlugin):
                         partGlyph.export = False
                         font.glyphs.append(partGlyph)
                         sumShapes = 0
-                        if (rootGlyph := font.glyphs[rootName]):
+                        rootGlyph = font.glyphs[rootName]
+                        if not rootGlyph and hasattr(font, 'glyphForUnicode_'):
+                            rootGlyph = font.glyphForUnicode_(rootName)
+                        if not rootGlyph:
+                            try:
+                                rootGlyph = font.glyphs[self.zi(rootName)]
+                            except Exception:
+                                pass
+                        if rootGlyph:
                             for layer in rootGlyph.layers:
                                 sumShapes += len(layer.shapes)
 

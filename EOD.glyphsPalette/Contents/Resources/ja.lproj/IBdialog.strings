@@ -138,3 +138,7 @@
 
 /* Class = "NSMenuItem"; title = "JIS第1・2水準 6.4k"; ObjectID = "JS2-6k-jis"; */
 "JS2-6k-jis.title" = "JIS第1・2水準 6.4k";
+
+/* Class = "NSButtonCell"; title = "Use local ids data file"; ObjectID = "R6N-DA-XFb"; */
+"R6N-DA-XFb.title" = "ローカルの IDS データファイルを使用";
+
