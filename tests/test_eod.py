@@ -100,5 +100,82 @@ class EODTests(unittest.TestCase):
             SimpleNamespace(name='Default Layer Width', value='han:1024')])
         self.assertEqual(self.eod.getHanWidth(), 1024)
 
+    def test_existing_recommendation_widths_preserved(self):
+        layers = [SimpleNamespace(width=777), SimpleNamespace(width=555)]
+        self.app.font = SimpleNamespace(customParameters=[], glyphs={'6728': SimpleNamespace(layers=layers)},
+                                        newTab=lambda text: SimpleNamespace())
+        self.eod.uniListPopupButton = Control()
+        self.eod.heroAmountPopupButton = Control()
+        self.eod.textFieldNextHero = Control()
+        self.eod.charSetDict = {'GB2312': ['6728']}
+        self.eod.doneList = lambda: []
+        self.eod.nextHeroList = lambda *args: ['6728']
+        self.eod.nextHeroButton_(None)
+        self.assertEqual([layer.width for layer in layers], [777, 555])
+
+        class GlyphCollection(dict):
+            def __getitem__(self, key): return self.get(key)
+            def append(self, glyph): self['6728'] = glyph
+
+        self.app.font.glyphs = GlyphCollection()
+        factory = lambda name: SimpleNamespace(layers=[SimpleNamespace(width=0), SimpleNamespace(width=0)])
+        self.eod.nextHeroButton_.__func__.__globals__['GSGlyph'] = factory
+        self.eod.nextHeroButton_(None)
+        self.assertEqual([layer.width for layer in self.app.font.glyphs['6728'].layers], [1000, 1000])
+
+    def test_nested_a_does_not_block_b_or_c_match(self):
+        formulas = [
+            ['⿰', ['⿱', '木', '火'], ['⿱', '水', '土']],
+            ['⿰', ['⿱', '口', '日'], ['⿱', '水', '金']],
+            ['⿲', ['⿱', '木', '火'], '水', '土'],
+            ['⿲', ['⿱', '口', '日'], '金', '土']]
+        self.eod.idsDict = {str(i): {'formula': f} for i, f in enumerate(formulas)}
+        self.assertEqual(self.eod.isSlibing('0', '1')[0], 'B-sub')
+        self.assertEqual(self.eod.isSlibing('2', '3')[0], 'C')
+
+    def test_siblings_exclude_selected_character(self):
+        tab = SimpleNamespace(text='', selectedTextRange=None)
+        self.app.font = SimpleNamespace(currentTab=tab)
+        self.eod.thisGlyphs = lambda: [SimpleNamespace(unicode='6728')]
+        self.eod.doneList = lambda **kwargs: ['6728']
+        self.eod.checkBoxDoneUniOnly = Control()
+        self.eod.checkBoxFormulaType = Control()
+        self.eod.textFieldPartAAmount = Control(3)
+        self.eod.textFieldPartBAmount = Control(3)
+        self.eod.siblingButton_(None)
+        self.assertEqual(tab.text, '木')
+
+    def test_indexed_recommendation_matches_independent_brute_force(self):
+        # Independently implement the corrected matching rules, including
+        # overlapping matches that must count only once in coverage.
+        def matches(x, y):
+            if x[0] != y[0] or x[0] == '○':
+                return False
+            if x[1] == y[1] or x[2] == y[2]:
+                return True
+            for a, b in zip(x[1:3], y[1:3]):
+                if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+                    if a[:2] == b[:2] or a[0:3:2] == b[0:3:2]:
+                        return True
+            return len(x) > 3 and len(y) > 3 and x[-1] == y[-1]
+
+        unis = sorted(self.eod.idsDict)[:150]
+        unis += ['F0000', 'F0001', 'F0002', 'F0003']
+        for uni, formula in zip(unis[-4:], [
+                ['⿲', ['⿱', '木', '火'], '水', '土'],
+                ['⿲', ['⿱', '口', '日'], '金', '土'],
+                ['⿰', ['⿱', '木', '火'], ['⿱', '水', '土']],
+                ['⿰', ['⿱', '口', '日'], ['⿱', '水', '金']]]):
+            self.eod.idsDict[uni] = {'formula': formula}
+        self.eod.progBarProgress = Control()
+        for done in ([], unis[:12], unis[-1:]):
+            candidates = [u for u in unis if u not in done and
+                          not any(matches(self.eod.getFormula(u), self.eod.getFormula(d)) for d in done)]
+            coverage = {u: sum(matches(self.eod.getFormula(u), self.eod.getFormula(v))
+                               for v in candidates) for u in candidates}
+            expected = sorted((u for u in candidates if coverage[u]),
+                              key=lambda u: (-coverage[u], int(u, 16)))
+            self.assertEqual(self.eod.nextHeroList(done, unis, 200), expected)
+
 
 if __name__ == '__main__': unittest.main()

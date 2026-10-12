@@ -1,0 +1,38 @@
+{
+  "build": 4201.0,
+  "source": "/Users/tanukizamurai/Library/CloudStorage/GoogleDrive-tanukiweb@gmail.com/マイドライブ/01_Fonts/00_Glyphs/Plugin/Tanukizamurai/EOD_rev/EOD.glyphsPalette/Contents/Resources/plugin.py",
+  "sha256": "c175911a94b8c0b0ccaa19b9cc58646856df32e822d0fe480e4efd4b67c348b9",
+  "checks": [
+    "nested B-sub and C matching",
+    {
+      "existing widths after repeated recommendation": [
+        777.0,
+        555.0
+      ]
+    },
+    {
+      "dataset": "GB2312",
+      "seconds": 0.12290649999886227,
+      "output": "芯淮洛"
+    },
+    {
+      "dataset": "Hanyi9169",
+      "seconds": 0.20923037499960628,
+      "output": "淮芯洛"
+    },
+    {
+      "dataset": "Big5",
+      "seconds": 0.29434029099866166,
+      "output": "氻淮涀"
+    },
+    {
+      "siblings no duplicate after repeat": "休体"
+    }
+  ],
+  "ui_checks": [
+    "Call sister word: 休体",
+    "GB2312: 芯淮洛",
+    "Big5: 氻淮涀",
+    "widths after UI clicks: 777 / 555"
+  ]
+}

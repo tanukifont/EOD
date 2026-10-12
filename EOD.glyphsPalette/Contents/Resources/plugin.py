@@ -8,7 +8,6 @@
 ################################################################################
 
 import gzip
-import itertools
 import os
 import pickle
 import random
@@ -179,6 +178,8 @@ class EOD(PalettePlugin):
         partListA = []
         partListB = []
         for xUni in searchRange:
+            if xUni == thisGlyphUni:
+                continue
             if not (matchType := self.isSlibing(thisGlyphUni, xUni)[0]):
                 continue
             if matchType in ['A', 'A-sub']:
@@ -240,8 +241,8 @@ class EOD(PalettePlugin):
             nextHeroZiStr += self.zi(xUni)
             if not font.glyphs[xUni]:
                 font.glyphs.append(GSGlyph(self.zi(xUni)))
-            for layer in font.glyphs[xUni].layers:
-                layer.width = layerWidth
+                for layer in font.glyphs[xUni].layers:
+                    layer.width = layerWidth
 
         self.textFieldNextHero.setStringValue_(nextHeroZiStr)
         tab = font.newTab(nextHeroZiStr)
@@ -513,55 +514,43 @@ class EOD(PalettePlugin):
 
     @objc.python_method
     def nextHeroList(self, doneUniList, allUniList, amount=3):
-        def cut2ModelDict(uniList):
-            modelDict = {}
-            for xUni in uniList:
-                modelKey = self.getFormula(xUni)[0]
-                if modelKey != '○':
-                    modelDict.setdefault(modelKey, []).append(xUni)
+        # Each token represents one of isSlibing's matching conditions.
+        # Keep the structural model in the key, as in the previous search.
+        def keys(uni):
+            formula = self.getFormula(uni)
+            model = formula[0]
+            if model == '○':
+                return set()
+            return {(model, token) for token in self.siblingKeys(formula)}
 
-            return modelDict
+        def index(unis):
+            result = {}
+            for uni in unis:
+                for key in keys(uni):
+                    result.setdefault(key, set()).add(uni)
+            return result
 
-        time_start = time.time()
         self.progBarProgress.setDoubleValue_(0.0)
-
-        idsSet = set(self.idsDict.keys())
+        idsSet = set(self.idsDict)
         doneUniSet = set(doneUniList) & idsSet
-        allUniSet = set(allUniList) & idsSet
-        searhUniSet = allUniSet - doneUniSet
-
-        nextUniSet = searhUniSet.copy()
-        targetDict = cut2ModelDict(doneUniSet)
-
-        for xUni in searhUniSet:
-            modelKey = self.getFormula(xUni)[0]
-            for yUni in targetDict.setdefault(modelKey, []):
-                matchType, matchPart, matchNote = self.isSlibing(xUni, yUni)
-                if matchType:
-                    nextUniSet.discard(xUni)
-
+        searchUniSet = (set(allUniList) & idsSet) - doneUniSet
+        doneIndex = index(doneUniSet)
+        nextUniSet = {uni for uni in searchUniSet
+                      if not any(key in doneIndex for key in keys(uni))}
         self.progBarProgress.setDoubleValue_(50.0)
-        print('=' * 20, '\nPart1 Time：', round(time.time() - time_start, 2), 's')
-        time_part1 = time.time()
 
-        targetDict = cut2ModelDict(nextUniSet)
-        xDict = {}
-        for modelList in targetDict.values():
-            for xUni, yUni in itertools.product(modelList, modelList):
-                matchType, matchPart, matchNote = self.isSlibing(xUni, yUni)
-                if matchType:
-                    xDict[xUni] = xDict.get(xUni, 0) + 1
-
-        allHeroLists = sorted(xDict.items(), key=lambda x: x[1], reverse=1)
-        topHeroLists = allHeroLists[:amount]
-
-        heroList = []
-        for xUni, xCoverage in topHeroLists:
-            heroList.append(xUni)
+        candidateIndex = index(nextUniSet)
+        coverage = {}
+        for uni in nextUniSet:
+            matches = set()
+            for key in keys(uni):
+                matches.update(candidateIndex[key])
+            if matches:
+                coverage[uni] = len(matches)
+        # Stable Unicode ordering resolves ties independently of set iteration.
+        heroList = sorted(coverage, key=lambda uni: (-coverage[uni], int(uni, 16)))[:amount]
 
         self.progBarProgress.setDoubleValue_(100.0)
-        print('=' * 20, '\nPart2 Time：', round(time.time() - time_part1, 2), 's')
-        print('=' * 40, '\nTotal Time：', round(time.time() - time_start, 2), 's')
 
         return heroList
 
@@ -622,34 +611,32 @@ class EOD(PalettePlugin):
         '''
         Check if the xUni/yUni formula match.
         '''
-        slibingResult = [None, None, 'No Match']
         xGet, yGet = self.getFormula(xUni), self.getFormula(yUni)
+        xKeys, yKeys = self.siblingKeys(xGet), self.siblingKeys(yGet)
+        common = xKeys & yKeys
+        for side, part in [('A', xGet[1]), ('B', xGet[2]),
+                           ('A-sub', xGet[1]), ('B-sub', xGet[2])]:
+            if any(token[0] == side for token in common):
+                return [side, part, '%s-side match: %s' % (side, str(part))]
+        if any(token[0] == 'C' for token in common):
+            return ['C', xGet[-1], 'C-side match: %s' % str(xGet[-1])]
+        return [None, None, 'No Match']
 
-        xA, xB = xGet[1], xGet[2]
-        yA, yB = yGet[1], yGet[2]
+    @objc.python_method
+    def siblingKeys(self, formula):
+        """Hashable signatures shared by matching and indexed recommendation."""
+        def freeze(value):
+            return tuple(freeze(item) for item in value) if isinstance(value, list) else value
 
-        # A-Side match
-        if xA == yA:
-            slibingResult = ['A', xA, 'A-side match: %s' % str(xA)]
-        # B-Side match
-        elif xB == yB:
-            slibingResult = ['B', xB, 'B-side match: %s' % str(xB)]
-        # A-Side sub part match
-        elif (isinstance(xA, list) and isinstance(yA, list)):
-            if len(xA) == len(yA):
-                if (xA[0:2] == yA[0:2] or xA[0:3:2] == yA[0:3:2]):
-                    slibingResult = ['A-sub', xA, 'A-side match: %s' % str(xA)]
-        # B-Side sub part match
-        elif (isinstance(xB, list) and isinstance(yB, list)):
-            if len(xB) == len(yB):
-                if xB[0:2] == yB[0:2] or xB[0:3:2] == yB[0:3:2]:
-                    slibingResult = ['B-sub', xB, 'B-side match: %s' % str(xB)]
-        # C-Side match for 3in1
-        elif len(xGet) > 3 and xGet[-1] == yGet[-1]:
-            xC = xGet[-1]
-            slibingResult = ['C', xC, 'C-side match: %s' % str(xC)]
-
-        return slibingResult
+        result = set()
+        for side, part in [('A', formula[1]), ('B', formula[2])]:
+            result.add((side, freeze(part)))
+            if isinstance(part, list):
+                result.add((side + '-sub', len(part), 'first', freeze(part[0:2])))
+                result.add((side + '-sub', len(part), 'second', freeze(part[0:3:2])))
+        if len(formula) > 3:
+            result.add(('C', freeze(formula[-1])))
+        return result
 
     @objc.python_method
     def defaultDataFolder(self):
