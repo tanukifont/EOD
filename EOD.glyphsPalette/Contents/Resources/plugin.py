@@ -138,7 +138,9 @@ class EOD(PalettePlugin):
                 font.glyphs[xUni].tags.append('EOD_Done')
         textDone = Glyphs.localize({
             'en': 'Glyphs done: ',
-            'zh': '已绘制：'})
+            'zh': '已绘制：',
+            'ja': '描画済み：',
+        })
         text = textDone + str(len(doneList)) + ' Unicode'
         self.textFieldProgress.setStringValue_(text)
 
@@ -269,6 +271,7 @@ class EOD(PalettePlugin):
         self.name = Glyphs.localize({
             'en': 'Explosive Ordnance Disposal',
             'zh': '拆字小组',
+            'ja': 'EOD (漢字分解)',
         })
 
         self.loadNib('IBdialog', __file__)
@@ -331,6 +334,7 @@ class EOD(PalettePlugin):
             text = Glyphs.localize({
                 "en": "Decomposition:",
                 "zh": "拆解结构式：",
+                "ja": "分解構造式：",
             })
             nameNote = text + "\n" + self.getFormulaNote(
                 thisGlyph.unicode,
@@ -340,6 +344,7 @@ class EOD(PalettePlugin):
             nameNote = Glyphs.localize({
                 'en': 'Glyph without Unicode',
                 'zh': '无 Unicode 字符',
+                'ja': 'Unicodeのない文字',
             })
 
         self.textFieldTargetZi.setStringValue_(targetZi)
@@ -419,6 +424,7 @@ class EOD(PalettePlugin):
             formulaNote = Glyphs.localize({
                 'en': 'Please click the 「数据源」 tab to download or choose your data file',
                 'zh': '首次使用，请点击「数据源」标签页，下载所需数据。',
+                'ja': '初回使用時は「データソース」タブで必要なデータをダウンロードまたは選択してください。',
             })
             return formulaNote
 
