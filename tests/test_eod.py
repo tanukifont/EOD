@@ -177,5 +177,40 @@ class EODTests(unittest.TestCase):
                               key=lambda u: (-coverage[u], int(u, 16)))
             self.assertEqual(self.eod.nextHeroList(done, unis, 200), expected)
 
+    def test_part_name_dict_localization_japanese_and_english(self):
+        # Test English localization (default mock app)
+        parts_en = self.eod.getPartNameDict(self.eod.getFormula('62C5'))  # 担
+        self.assertEqual(parts_en['_part.u624C-LR'], ['扌', '⿰ Left'])
+        self.assertEqual(parts_en['_part.u65E5-AB'], ['日', '⿰ Right ➤ Substructure: ⿱ Top'])
+        self.assertEqual(parts_en['_part.u4E00-AB'], ['一', '⿰ Right ➤ Substructure: ⿱ Bottom'])
+
+        # Switch mock to Japanese
+        orig_localize = self.app.localize
+        try:
+            self.app.localize = lambda d: d.get('ja', d.get('en'))
+            parts_ja = self.eod.getPartNameDict(self.eod.getFormula('62C5'))
+            self.assertEqual(parts_ja['_part.u624C-LR'], ['扌', '⿰ 左側部'])
+            self.assertEqual(parts_ja['_part.u65E5-AB'], ['日', '⿰ 右側部 ➤ 子構造：⿱ 上側部'])
+            self.assertEqual(parts_ja['_part.u4E00-AB'], ['一', '⿰ 右側部 ➤ 子構造：⿱ 下側部'])
+        finally:
+            self.app.localize = orig_localize
+
+    def test_localize_part_note_legacy_conversion(self):
+        legacy = '部件字符：扌 \n生成于：【 担 】 \n结构型：⿰ 左侧部'
+
+        # Under English locale
+        converted_en = self.eod.localizePartNote(legacy)
+        self.assertEqual(converted_en, 'Component: 扌 \nFrom: 【 担 】 \nStructure: ⿰ Left')
+
+        # Under Japanese locale
+        orig_localize = self.app.localize
+        try:
+            self.app.localize = lambda d: d.get('ja', d.get('en'))
+            converted_ja = self.eod.localizePartNote(legacy)
+            self.assertEqual(converted_ja, 'パーツ文字：扌 \n元文字：【 担 】 \n構造型：⿰ 左側部')
+        finally:
+            self.app.localize = orig_localize
+
 
 if __name__ == '__main__': unittest.main()
+

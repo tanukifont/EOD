@@ -105,8 +105,13 @@ class EOD(PalettePlugin):
                                 layer.shapes = list(layer.shapes) + [self.getBombComponent()]
                                 layer.width = self.getHanWidth()
 
-                        userData_partNameNote = '部件字符：%s \n生成于：【 %s 】 \n结构型：%s' % (noteList[0],
-                                                                                   self.zi(glyphUni), noteList[1])
+                        partNameNoteTemplate = Glyphs.localize({
+                            'en': 'Component: %s \nFrom: 【 %s 】 \nStructure: %s',
+                            'zh': '部件字符：%s \n生成于：【 %s 】 \n结构型：%s',
+                            'ja': 'パーツ文字：%s \n元文字：【 %s 】 \n構造型：%s',
+                        })
+                        userData_partNameNote = partNameNoteTemplate % (noteList[0],
+                                                                        self.zi(glyphUni), noteList[1])
                         font.glyphs[partName].userData['EOD_partNameNote'] = userData_partNameNote
 
             else:
@@ -119,7 +124,12 @@ class EOD(PalettePlugin):
             stringLength = len(tab.string.encode('utf-16-le')) // 2
             tab.selectedTextRange = (max(0, stringLength - originalLength), originalLength)
 
-        print('=' * 40, '\n部件查找计算用时：', round(time.time() - time_start, 2), 's')
+        lookupTimeMsg = Glyphs.localize({
+            'en': 'Component lookup computation time: ',
+            'zh': '部件查找计算用时：',
+            'ja': 'パーツ検索計算時間：',
+        })
+        print('=' * 40, '\n' + lookupTimeMsg, round(time.time() - time_start, 2), 's')
         # print(sumDict)
 
     @objc.IBAction
@@ -329,7 +339,7 @@ class EOD(PalettePlugin):
             targetZiFormulaType = '○'
 
         if thisGlyph.userData['EOD_partNameNote']:
-            nameNote = thisGlyph.userData['EOD_partNameNote']
+            nameNote = self.localizePartNote(thisGlyph.userData['EOD_partNameNote'])
         elif thisGlyph.unicode:
             text = Glyphs.localize({
                 "en": "Decomposition:",
@@ -456,6 +466,77 @@ class EOD(PalettePlugin):
         return formulaNote
 
     @objc.python_method
+    def localizePartNote(self, noteStr):
+        if not noteStr:
+            return noteStr
+
+        translations = [
+            ({'zh': '部件字符：', 'ja': 'パーツ文字：', 'en': 'Component: '}),
+            ({'zh': '生成于：', 'ja': '元文字：', 'en': 'From: '}),
+            ({'zh': '结构型：', 'ja': '構造型：', 'en': 'Structure: '}),
+            ({'zh': '子结构：', 'ja': '子構造：', 'en': 'Substructure: '}),
+            ({'zh': '左侧部', 'ja': '左側部', 'en': 'Left'}),
+            ({'zh': '右侧部', 'ja': '右側部', 'en': 'Right'}),
+            ({'zh': '上侧部', 'ja': '上側部', 'en': 'Top'}),
+            ({'zh': '下侧部', 'ja': '下側部', 'en': 'Bottom'}),
+            ({'zh': '全包围部', 'ja': '全包囲部', 'en': 'Full surround'}),
+            ({'zh': '被包围部', 'ja': '被包囲部', 'en': 'Surrounded'}),
+            ({'zh': '上包围部', 'ja': '上包囲部', 'en': 'Top surround'}),
+            ({'zh': '下包围部', 'ja': '下包囲部', 'en': 'Bottom surround'}),
+            ({'zh': '左包围部', 'ja': '左包囲部', 'en': 'Left surround'}),
+            ({'zh': '左上包围部', 'ja': '左上包囲部', 'en': 'Top-left surround'}),
+            ({'zh': '右上包围部', 'ja': '右上包囲部', 'en': 'Top-right surround'}),
+            ({'zh': '左下包围部', 'ja': '左下包囲部', 'en': 'Bottom-left surround'}),
+            ({'zh': '交叠件', 'ja': '交差部', 'en': 'Overlaid'}),
+        ]
+
+        lang = Glyphs.localize({'zh': 'zh', 'ja': 'ja', 'en': 'en'})
+        for trans in translations:
+            target = trans.get(lang, trans['en'])
+            for src_lang, src_text in trans.items():
+                if src_lang != lang and src_text in noteStr:
+                    noteStr = noteStr.replace(src_text, target)
+        return noteStr
+
+    @objc.python_method
+    def _getModelStrDict(self):
+        lang = Glyphs.localize({'zh': 'zh', 'ja': 'ja', 'en': 'en'})
+        if not hasattr(self, '_modelStrDictCacheByLang'):
+            self._modelStrDictCacheByLang = {}
+        if lang not in self._modelStrDictCacheByLang:
+            def loc(zh, ja, en):
+                return Glyphs.localize({'zh': zh, 'ja': ja, 'en': en})
+
+            self._modelStrDictCacheByLang[lang] = {
+                '⿰': [['-LR', loc('⿰ 左侧部', '⿰ 左側部', '⿰ Left')], ['-LR', loc('⿰ 右侧部', '⿰ 右側部', '⿰ Right')]],
+                '⿱': [['-AB', loc('⿱ 上侧部', '⿱ 上側部', '⿱ Top')], ['-AB', loc('⿱ 下侧部', '⿱ 下側部', '⿱ Bottom')]],
+                '⿴': [['-FS', loc('⿴ 全包围部', '⿴ 全包囲部', '⿴ Full surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿵': [['-SfA', loc('⿵ 上包围部', '⿵ 上包囲部', '⿵ Top surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿶': [['-SfB', loc('⿶ 下包围部', '⿶ 下包囲部', '⿶ Bottom surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿷': [['-SfL', loc('⿷ 左包围部', '⿷ 左包囲部', '⿷ Left surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿸': [['-SfAL', loc('⿸ 左上包围部', '⿸ 左上包囲部', '⿸ Top-left surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿹': [['-SfAR', loc('⿹ 右上包围部', '⿹ 右上包囲部', '⿹ Top-right surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿺': [['-SfBL', loc('⿺ 左下包围部', '⿺ 左下包囲部', '⿺ Bottom-left surround')], ['-Si', loc('⿴ 被包围部', '⿴ 被包囲部', '⿴ Surrounded')]],
+                '⿻': [['-XiX', loc('⿻ 交叠件', '⿻ 交差部', '⿻ Overlaid')], ['-XiX', loc('⿻ 交叠件', '⿻ 交差部', '⿻ Overlaid')]],
+                '⿲': [['-LR', loc('⿲ 左侧部', '⿲ 左側部', '⿲ Left')], ['-LR', loc('⿲ 中央部', '⿲ 中央部', '⿲ Center')], ['-LR', loc('⿲ 右侧部', '⿲ 右側部', '⿲ Right')]],
+                '⿳': [['-AB', loc('⿳ 上侧部', '⿳ 上側部', '⿳ Top')], ['-AB', loc('⿳ 中央部', '⿳ 中央部', '⿳ Center')], ['-AB', loc('⿳ 下侧部', '⿳ 下側部', '⿳ Bottom')]]
+            }
+        return self._modelStrDictCacheByLang[lang]
+
+    @objc.python_method
+    def _getSubStructureLabel(self):
+        lang = Glyphs.localize({'zh': 'zh', 'ja': 'ja', 'en': 'en'})
+        if not hasattr(self, '_subStructureLabelCacheByLang'):
+            self._subStructureLabelCacheByLang = {}
+        if lang not in self._subStructureLabelCacheByLang:
+            self._subStructureLabelCacheByLang[lang] = Glyphs.localize({
+                'en': ' ➤ Substructure: ',
+                'zh': ' ➤ 子结构：',
+                'ja': ' ➤ 子構造：',
+            })
+        return self._subStructureLabelCacheByLang[lang]
+
+    @objc.python_method
     def getPartNameDict(self, formulaList, seen=frozenset()):
         def cleanName(strOld):
             strNew = ''
@@ -467,20 +548,8 @@ class EOD(PalettePlugin):
                 strNew += x
             return strNew
 
-        modelStrDict = {
-            '⿰': [['-LR', '⿰ 左侧部', '⿰左'], ['-LR', '⿰ 右侧部']],
-            '⿱': [['-AB', '⿱ 上侧部'], ['-AB', '⿱ 下侧部']],
-            '⿴': [['-FS', '⿴ 全包围部'], ['-Si', '⿴ 被包围部']],
-            '⿵': [['-SfA', '⿵ 上包围部'], ['-Si', '⿴ 被包围部']],
-            '⿶': [['-SfB', '⿶ 下包围部'], ['-Si', '⿴ 被包围部']],
-            '⿷': [['-SfL', '⿷ 左包围部'], ['-Si', '⿴ 被包围部']],
-            '⿸': [['-SfAL', '⿸ 左上包围部'], ['-Si', '⿴ 被包围部']],
-            '⿹': [['-SfAR', '⿹ 右上包围部'], ['-Si', '⿴ 被包围部']],
-            '⿺': [['-SfBL', '⿺ 左下包围部'], ['-Si', '⿴ 被包围部']],
-            '⿻': [['-XiX', '⿻ 交叠件'], ['-XiX', '⿻ 交叠件']],
-            '⿲': [['-LR', '⿲ 左侧部'], ['-LR', '⿲ 中央部'], ['-LR', '⿲ 右侧部']],
-            '⿳': [['-AB', '⿳ 上侧部'], ['-AB', '⿳ 中央部'], ['-AB', '⿳ 下侧部']]
-        }
+        modelStrDict = self._getModelStrDict()
+        subStructureLabel = self._getSubStructureLabel()
         modelSymbol = formulaList[0]
         if modelSymbol == '○':
             return {}
@@ -501,14 +570,14 @@ class EOD(PalettePlugin):
                 else:
                     innerPartDict = self.getPartNameDict(partFormulaList, seen)
                     for xName, xNote in innerPartDict.items():
-                        nameNote = modelList[i][1] + ' ➤ 子结构：' + xNote[1]
+                        nameNote = modelList[i][1] + subStructureLabel + xNote[1]
                         innerPartDict[xName][1] = nameNote
                     partNameDict = innerPartDict | partNameDict
 
             elif isinstance(part, list):
                 innerPartDict = self.getPartNameDict(part, seen)
                 for xName, xNote in innerPartDict.items():
-                    nameNote = modelList[i][1] + ' ➤ 子结构：' + xNote[1]
+                    nameNote = modelList[i][1] + subStructureLabel + xNote[1]
                     innerPartDict[xName][1] = nameNote
                 partNameDict = innerPartDict | partNameDict
 
