@@ -365,7 +365,7 @@
                                         <rect key="frame" x="6" y="4" width="351" height="42"/>
                                         <textFieldCell key="cell" controlSize="small" id="Ffk-Fx-age">
                                             <font key="font" metaFont="smallSystem"/>
-                                            <string key="title">If you use your own data, please refer to the relevant data packaging tools in the source code datatool, and store it in ~/Library/Application Support/Glyphs 3/Info/EDO/idsData.pdata</string>
+                                            <string key="title">If you use your own data, please refer to the relevant data packaging tools in the source code datatool, and store it in ~/Library/Application Support/Glyphs 4/Info/EDO/idsDict.pdata</string>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>

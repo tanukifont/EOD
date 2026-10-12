@@ -13,15 +13,13 @@
 	<key>CFBundleName</key>
 	<string>EOD</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.4.6</string>
+	<string>2.4.7</string>
 	<key>CFBundleVersion</key>
-	<string>230503</string>
-	<key>UpdateFeedURL</key>
-	<string>https://raw.githubusercontent.com/3type/EOD/master/Plugins/Plugin-Palette/EOD.glyphsPalette/Contents/Info.plist</string>
+	<string>261012</string>
 	<key>productPageURL</key>
 	<string>https://github.com/3type/EOD</string>
 	<key>productReleaseNotes</key>
-	<string>Have fun and take the bomb.</string>
+	<string>Glyphs 4 compatibility fixes (local revision).</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright, 3type, 2023</string>
 	<key>NSPrincipalClass</key>

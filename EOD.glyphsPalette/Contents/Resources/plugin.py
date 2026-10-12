@@ -3,7 +3,7 @@
 ################################################################################
 #
 #    Explosive Ordnance Disposal
-#    The Glyphs 3 Plugin from 3type
+#    The Glyphs 4 compatible Plugin from 3type
 #
 ################################################################################
 
@@ -16,7 +16,7 @@ import time
 
 import objc
 from GlyphsApp import UPDATEINTERFACE, Glyphs, GSComponent, \
-    GSGlyph, GSNode, GSPath, GSGlyphsInfo
+    GSGlyph, GSNode, GSPath
 from GlyphsApp.plugins import PalettePlugin
 
 
@@ -62,7 +62,9 @@ class EOD(PalettePlugin):
         '''
         time_start = time.time()
         font = Glyphs.font
-        thisUniList = [glyph.unicode for glyph in self.thisGlyphs()]
+        if font is None:
+            return
+        thisUniList = [glyph.unicode for glyph in self.thisGlyphs() if glyph.unicode]
 
         if not thisUniList:
             return
@@ -84,18 +86,24 @@ class EOD(PalettePlugin):
                     partNameStr = partNameStr + '/' + partName + ' '
 
                     if not font.glyphs[partName]:
-                        font.glyphs.append(GSGlyph(partName))
+                        partGlyph = GSGlyph(partName)
+                        partGlyph.export = False
+                        font.glyphs.append(partGlyph)
                         sumShapes = 0
                         if (rootGlyph := font.glyphs[rootName]):
                             for layer in rootGlyph.layers:
                                 sumShapes += len(layer.shapes)
 
                         if sumShapes:
-                            font.glyphs[partName] = font.glyphs[rootName].copy()
+                            for master in font.masters:
+                                source = rootGlyph.layers[master.id]
+                                target = partGlyph.layers[master.id]
+                                target.shapes = [shape.copy() for shape in source.shapes]
+                                target.width = source.width
                         else:
                             for master in font.masters:
                                 layer = font.glyphs[partName].layers[master.id]
-                                layer.shapes.append(self.getBombComponent())
+                                layer.shapes = list(layer.shapes) + [self.getBombComponent()]
                                 layer.width = self.getHanWidth()
 
                         userData_partNameNote = '部件字符：%s \n生成于：【 %s 】 \n结构型：%s' % (noteList[0],
@@ -104,9 +112,13 @@ class EOD(PalettePlugin):
 
             else:
                 continue
-        if font.currentTab:
-            font.currentTab.text = partNameStr + self.zi(thisUniList[0])
-            font.currentTab.textCursor = len(font.currentTab.layers) - 1
+        tab = font.currentTab or font.newTab()
+        if tab is not None:
+            original = self.zi(thisUniList[0])
+            tab.text = partNameStr + original
+            originalLength = len(original.encode('utf-16-le')) // 2
+            stringLength = len(tab.string.encode('utf-16-le')) // 2
+            tab.selectedTextRange = (max(0, stringLength - originalLength), originalLength)
 
         print('=' * 40, '\n部件查找计算用时：', round(time.time() - time_start, 2), 's')
         # print(sumDict)
@@ -116,12 +128,15 @@ class EOD(PalettePlugin):
         '''
         Check the done glyphs by totalStrokes.
         '''
+        if Glyphs.font is None:
+            return
         doneList = self.doneList(update=True)
         self.doneList(update=True, bypass=True)
 
         font = Glyphs.font
         for xUni in doneList:
-            font.glyphs[xUni].tags.append('EOD_Done')
+            if 'EOD_Done' not in font.glyphs[xUni].tags:
+                font.glyphs[xUni].tags.append('EOD_Done')
         textDone = Glyphs.localize({
             'en': 'Glyphs done: ',
             'zh': '已绘制：'})
@@ -174,7 +189,7 @@ class EOD(PalettePlugin):
         # print('='*20, '\n查询字:', glyphZi, '\n', '-'*20)
 
         def getRandomStr(xList, amount):
-            rList = random.sample(xList, min(len(xList), amount))
+            rList = random.sample(xList, min(len(xList), max(0, amount)))
             return ''.join(self.zi(x) for x in rList)
 
         partStrA = getRandomStr(
@@ -185,11 +200,10 @@ class EOD(PalettePlugin):
         # print('B侧部件:', partStrB)
 
         tabText = partStrA + glyphZi + partStrB
-        if font.currentTab:
-            font.currentTab.text = tabText
-        else:
-            font.newTab(tabText)
-        font.currentTab.textCursor = len(partStrA)
+        tab = font.currentTab or font.newTab(tabText)
+        tab.text = tabText
+        tab.selectedTextRange = (len(partStrA.encode('utf-16-le')) // 2,
+                                 len(glyphZi.encode('utf-16-le')) // 2)
         Glyphs.defaults['com.the3type.EOD.siblingAmounts'] = [self.textFieldPartAAmount.intValue(),
                                                               self.textFieldPartBAmount.intValue()]
 
@@ -202,6 +216,8 @@ class EOD(PalettePlugin):
         Find your next Hero Glyph to help the most.
         '''
         font = Glyphs.font
+        if font is None:
+            return
         layerWidth = self.getHanWidth()
 
         uniListDict = {
@@ -214,7 +230,7 @@ class EOD(PalettePlugin):
         searchRange = self.charSetDict[uniListName]
         print('Character set size: ', len(searchRange))
         doneList = self.doneList()
-        print('Characters done: ', len(searchRange))
+        print('Characters done: ', len(doneList))
 
         heroAmount = self.heroAmountPopupButton.indexOfSelectedItem() + 1
         nextHeroList = self.nextHeroList(doneList, searchRange, heroAmount)
@@ -228,16 +244,18 @@ class EOD(PalettePlugin):
                 layer.width = layerWidth
 
         self.textFieldNextHero.setStringValue_(nextHeroZiStr)
-        font.newTab(nextHeroZiStr)
-        font.currentTab.textCursor = 0
-        font.currentTab.textRange = 1
+        tab = font.newTab(nextHeroZiStr)
+        if tab is not None:
+            firstLength = len(nextHeroZiStr[:1].encode('utf-16-le')) // 2
+            tab.selectedTextRange = (0, firstLength)
 
     @objc.IBAction
     def loadIDSButton_(self, sender):
         '''
         Choose your IDS data.
         '''
-        self.readPdata(self.idsDataPopupButton.indexOfSelectedItem())
+        self.readPdata()
+        self.update(None)
 
     '''
     ============================================================================
@@ -261,6 +279,7 @@ class EOD(PalettePlugin):
         self.charSetDict = {}
         self.lastActiveGlyph = None
         self.lastActiveTab = None
+        self.lastUIState = None
         self.runtimeDict = {}
         # Load data
         self.readPdata()
@@ -287,8 +306,12 @@ class EOD(PalettePlugin):
             return
 
         thisGlyph = thisGlyphs[0]
-        if thisGlyph == self.lastActiveGlyph and font.currentTab == self.lastActiveTab:
+        uiState = (font, thisGlyph, font.currentTab,
+                   self.checkBoxFormulaDeepDown.intValue(),
+                   thisGlyph.userData['EOD_partNameNote'])
+        if uiState == self.lastUIState:
             return
+        self.lastUIState = uiState
 
         self.lastActiveGlyph = thisGlyph
         self.lastActiveTab = font.currentTab
@@ -335,6 +358,8 @@ class EOD(PalettePlugin):
     @objc.python_method
     def thisGlyphs(self):
         font = Glyphs.font
+        if font is None:
+            return []
         if font.currentTab:
             thisLayers = font.currentTab.selectedLayers
             if len(thisLayers) >= 1:
@@ -362,11 +387,20 @@ class EOD(PalettePlugin):
     def getHanWidth(self):
         font = Glyphs.font
         layerWidth = 1000.0
-        for x in font.customParameters:
-            if x.name == 'Default Layer Width':
-                layerWidth = float(x.value.removeprefix('han:'))
-                if x.value.startswith('han:'):
-                    break
+        if font is None:
+            return layerWidth
+        for parameter in font.customParameters:
+            if parameter.name == 'Default Layer Width':
+                value = str(parameter.value)
+                if value.startswith('han:'):
+                    try:
+                        return float(value[4:])
+                    except ValueError:
+                        continue
+                try:
+                    layerWidth = float(value)
+                except ValueError:
+                    continue
 
         return layerWidth
 
@@ -387,21 +421,21 @@ class EOD(PalettePlugin):
             })
             return formulaNote
 
-        def packList(xList, deep=False):
+        def packList(xList, deep=False, seen=frozenset()):
             outStr = ''
             for x in xList:
                 # print(x)
                 if isinstance(x, list):
-                    outStr += '「%s」' % packList(x, deep)
+                    outStr += '「%s」' % packList(x, deep, seen)
                 elif isinstance(x, str):
                     if len(x) > 1:  # For 'CDP-xxxxx'
                         outStr += '「%s」' % x
                     elif deep:  # Search the Zi again
                         formulaList = self.getFormula(self.uni(x))
-                        if formulaList[0] == '○':
+                        if formulaList[0] == '○' or x in seen:
                             outStr += x
                         else:
-                            outStr += '「%s」' % packList(formulaList, deep)
+                            outStr += '「%s」' % packList(formulaList, deep, seen | {x})
                     else:
                         outStr += x
             return outStr
@@ -415,7 +449,7 @@ class EOD(PalettePlugin):
         return formulaNote
 
     @objc.python_method
-    def getPartNameDict(self, formulaList):
+    def getPartNameDict(self, formulaList, seen=frozenset()):
         def cleanName(strOld):
             strNew = ''
             for x in strOld:
@@ -444,25 +478,28 @@ class EOD(PalettePlugin):
         if modelSymbol == '○':
             return {}
 
+        if modelSymbol not in modelStrDict or repr(formulaList) in seen:
+            return {}
+        seen = seen | {repr(formulaList)}
         modelList = modelStrDict[modelSymbol]
         partNameDict = {}
         for i, part in enumerate(formulaList[1:]):
 
             nameNote = modelList[i][1]
-            if len(part) == 1:
+            if isinstance(part, str) and len(part) == 1:
                 partFormulaList = self.getFormula(self.uni(part))
                 if partFormulaList[0] == '○':
                     partNameStr = '_part.u' + self.uni(part) + modelList[i][0]
                     partNameDict[partNameStr] = [part, nameNote]
                 else:
-                    innerPartDict = self.getPartNameDict(partFormulaList)
+                    innerPartDict = self.getPartNameDict(partFormulaList, seen)
                     for xName, xNote in innerPartDict.items():
                         nameNote = modelList[i][1] + ' ➤ 子结构：' + xNote[1]
                         innerPartDict[xName][1] = nameNote
                     partNameDict = innerPartDict | partNameDict
 
             elif isinstance(part, list):
-                innerPartDict = self.getPartNameDict(part)
+                innerPartDict = self.getPartNameDict(part, seen)
                 for xName, xNote in innerPartDict.items():
                     nameNote = modelList[i][1] + ' ➤ 子结构：' + xNote[1]
                     innerPartDict[xName][1] = nameNote
@@ -530,16 +567,19 @@ class EOD(PalettePlugin):
 
     @objc.python_method
     def doneList(self, update=False, bypass=False):
-        def getCompStrokes(glyph):
-            if glyph:
-                pathStrokes = len(glyph.layers[0].paths)
-                if len(glyph.layers[0].components):
-                    for comp in glyph.layers[0].components:
-                        compStrokes = getCompStrokes(comp.component)
-                else:
-                    compStrokes = 0
-                return pathStrokes + compStrokes
-            return 0
+        def getCompStrokes(glyph, seen=frozenset()):
+            if glyph is None or glyph.name in seen:
+                return 0
+            seen = seen | {glyph.name}
+            layer = glyph.layers[Glyphs.font.selectedFontMaster.id]
+            if layer is None:
+                return 0
+            return len(layer.paths) + sum(
+                getCompStrokes(comp.component, seen) for comp in layer.components
+            )
+
+        if Glyphs.font is None:
+            return []
 
         if bypass:
             dataName = 'runtime_AllList'
@@ -551,10 +591,9 @@ class EOD(PalettePlugin):
         progPercent = progList[progIndex]
         Glyphs.defaults['com.the3type.EOD.progPercent'] = progIndex
 
+        # Recompute on explicit button actions: a font/master or outlines may
+        # have changed since the previous action. Never scan here on redraw.
         listX = []
-        if not update:
-            if (listX := self.runtimeDict.get(dataName, [])):
-                return listX
 
         for glyph in Glyphs.font.glyphs:
             if not (xUni := glyph.unicode):
@@ -569,7 +608,8 @@ class EOD(PalettePlugin):
             doneStrokes = getCompStrokes(glyph)
             if doneStrokes > targetStrokes:
                 listX.append(xUni)
-                glyph.tags.append('EOD_Done')
+                if 'EOD_Done' not in glyph.tags:
+                    glyph.tags.append('EOD_Done')
             else:
                 if 'EOD_Done' in glyph.tags:
                     glyph.tags.remove('EOD_Done')
@@ -620,7 +660,11 @@ class EOD(PalettePlugin):
 
     @objc.python_method
     def userDataFolder(self):
-        workDir = GSGlyphsInfo.applicationSupportPath()
+        from Foundation import NSApplicationSupportDirectory, NSUserDomainMask, NSSearchPathForDirectoriesInDomains
+        workDir = os.path.join(
+            NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, True)[0],
+            'Glyphs 4',
+        )
         workDir = os.path.join(workDir, "Info/EDO")
         # print("__workDir", workDir)
         return workDir
@@ -630,7 +674,8 @@ class EOD(PalettePlugin):
         '''
         Load or download the pdata file.
         '''
-        # print("__readPdata a")
+        self.runtimeDict = {}
+        self.lastUIState = None
 
         useLocal = self.idsDataPopupButton.state()
 
@@ -651,7 +696,9 @@ class EOD(PalettePlugin):
             with gzip.open(idsDataPath, 'rb') as fin:
                 self.idsDict = pickle.load(fin)
                 print('EOD idsDict Ready')
-        except:
+        except (OSError, EOFError, pickle.UnpicklingError) as error:
+            self.idsDict = {}
+            print(error)
             print('EOD idsDict data missing or broken.\nPlease Try Again.')
         # print("__readPdata b")
 
@@ -662,8 +709,16 @@ class EOD(PalettePlugin):
         aBombGlyph = font.glyphs[aBomb]
         if not aBombGlyph:
             # workDir = os.path.dirname(__file__)
-            with gzip.open(os.path.join(self.defaultDataFolder(), 'aBombList.pdata'), 'rb') as fin:
-                aBombNodeList = pickle.load(fin)
+            bombPath = os.path.join(self.defaultDataFolder(), 'aBombList.pdata')
+            if os.path.exists(bombPath):
+                with gzip.open(bombPath, 'rb') as fin:
+                    aBombNodeList = pickle.load(fin)
+            else:
+                # The upstream bundle omits aBombList.pdata. A visible box is
+                # a deterministic placeholder for a component awaiting drawing.
+                from GlyphsApp import LINE
+                aBombNodeList = [[(100, 100, LINE), (100, 700, LINE),
+                                 (700, 700, LINE), (700, 100, LINE)]]
 
             shapeList = []
             for path in aBombNodeList:
@@ -676,9 +731,10 @@ class EOD(PalettePlugin):
                 newPath.closed = True
                 shapeList.append(newPath)
             aBombGlyph = GSGlyph(aBomb)
+            aBombGlyph.export = False
             font.glyphs.append(aBombGlyph)
             for layer in aBombGlyph.layers:
                 layer.width = self.getHanWidth()
-                layer.shapes = shapeList
+                layer.shapes = [shape.copy() for shape in shapeList]
 
         return GSComponent(aBombGlyph)

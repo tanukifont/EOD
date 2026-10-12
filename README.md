@@ -1,6 +1,22 @@
 # Explosive Ordnance Disposal (拆字小组)
 
-EOD is a Glyphs 3 plug-in designed to improve the efficiency of Chinese font designers. Provide easy-to-use glyph disassembly and analysis functions.
+EOD is a Glyphs 4 compatible plug-in designed to improve the efficiency of Chinese font designers. Provide easy-to-use glyph disassembly and analysis functions.
+
+## Glyphs 4 local revision (2.4.7 / 261012)
+
+The existing native loader is retained. This revision repairs component creation,
+Reload, per-master stroke counting, stale results after font changes, and recursive
+custom IDS data. Missing `aBombList.pdata` now uses a visible rectangular placeholder;
+new part glyphs and the placeholder do not export. Source glyphs retain their names
+and Unicode values. The upstream update feed is disabled for this local revision.
+
+Install `EOD.glyphsPalette` in Glyphs 4 and restart the application. Custom IDS data
+belongs at `~/Library/Application Support/Glyphs 4/Info/EDO/idsDict.pdata`.
+The data filename is **idsDict.pdata**, not idsData.pdata.
+
+Regression checks: `python3 -m unittest discover -s tests -v`.
+Native verification details are recorded in `verification/Glyphs4-verification.md`.
+Original bundle backups are in `verification/`.
 
 ## Features
 
